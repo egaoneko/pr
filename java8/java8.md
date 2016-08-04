@@ -327,7 +327,7 @@ TimeZone zone = TimeZone.getTimeZone("Seoul/Asia"); // "Asia/Seoul"을 잘 못 �
 * 잘못 된 시간대 ID 지정에는 ``IllegalArguementException``을 던짐
 * 날짜 및 시간 형식으로  ``Instant``, ``LocalDate``, ``LocalDateTime``, ``ZonedDateTime``이 추가
 * 날짜와 시간 이외의 것으로서 ``Duration``과 ``Period``가 추가
-* ``Month``, ``DayOfWeek``, ``Year``, ``Month YearMonth``, MonthDay, OffsetTime, OffsetDateTime등의 값 형식 추가
+* ``Month``, ``DayOfWeek``, ``Year``, ``Month YearMonth``, ``MonthDay``, ``OffsetTime``, ``OffsetDateTime``등의 값 형식 추가
 * 날짜/시간 클래스는 대부분이 JDBC에서 지원됨으로서 RDB연동의 효율적인 구현이 가능
 
 * [Java SE 8 Date and Time - Oracle](http://www.oracle.com/technetwork/articles/java/jf14-date-time-2125367.html)
@@ -492,5 +492,5 @@ Files.walk(new File(".").toPath())
 * [Java 8 개선 사항 관련 글 모음](http://blog.fupfin.com/?p=27)
 * [자바 8 살펴보기](http://www.moreagile.net/2014/04/AllAboutJava8.html)
 * [Beyond Java: 자바 8을 중심으로 본 자바의 혁신](http://www.slideshare.net/gyumee/beyond-java-8)
-* [모던 자바 (자바 8) - 못다한 이야기](https://www.youtube.com/playlist?list=PLRIMoAKN8c6O8_VHOyBOhzBCeN7ShyJ27)
 * [java 8 람다식 소개와 의미 고찰 - Slide Share](http://www.slideshare.net/gyumee/java-8-lambda-35352385)
+* [모던 자바 (자바 8) - 못다한 이야기](https://www.youtube.com/playlist?list=PLRIMoAKN8c6O8_VHOyBOhzBCeN7ShyJ27)
