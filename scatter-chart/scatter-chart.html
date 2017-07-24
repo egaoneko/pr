@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Scatter Chart</title>
+
+		<meta name="description" content="Scatter Chart">
+		<meta name="author" content="Donghyun Seo">
+
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="../css/reveal.css">
+		<link rel="stylesheet" href="../css/theme/black.css" id="theme">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="../lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? '../css/print/pdf.css' : '../css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section data-markdown>
+					<script type="text/template">
+						# Scatter Chart
+						### Donghyun Seo
+					</script>
+				</section>
+
+				<section data-markdown>
+					<script type="text/template">
+						## 구현할 기능
+
+						* [20만개의 점]()을 표현하며 [20만개가 유지]()가 되는 차트
+						* 특정 도메인 기준으로 해당 도메인별 트랜잭션 리스트를 호출
+						* Axis(축)
+							* x축(최근 XX분, [가변적]()), 기본 y축 (0~5000) 
+							* y축 범위는 방향 키보드(↑,↓)로 재설정
+							* 점의 y값이 y축의 max값보다 높다면 max값과 동일한 기준
+						* 차트의 크기는 [윈도우의 풀사이즈](), 윈도우의 Resize로 차트 크기도 가변적
+					</script>
+				</section>
+
+				<section>
+					<section data-markdown>
+						<script type="text/template">
+							## 사용기술
+
+							* [SVG](https://developer.mozilla.org/ko/docs/Web/SVG)를 부적합 하다고 판단한 이유
+								* DOM을 사용하는 SVG가 [20만개의 점]()을 표현을 구현하는 상황에 부적합
+								* SVG DOM API를 이용한 컨트롤이 필요 없음
+								* 세미한 해상도가 필요 없음
+							* [WebGL](https://developer.mozilla.org/ko/docs/Web/API/WebGL_API)를 부적합 하다고 판단한 이유
+								* 구현할 기능이 3D를 필요하지 않음
+								* 제한된 최신 브라우저만을 지원
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							## 사용기술
+
+							* [Canvas](https://developer.mozilla.org/ko/docs/Web/HTML/Canvas)는 최적의 선택이기만 하는가? 
+								* 차트의 크기는 [윈도우의 풀사이즈](), 윈도우의 Resize로 차트 크기도 가변적
+
+							![SVG vs Canvas](./assets/svg_vs_canvas.png)
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							## 사용기술
+
+							* [lodash](https://lodash.com/) : lodash 유틸을 사용하기 위해 사용
+							* [moment](https://momentjs.com/) : 시간을 formatting 을 위해 사용
+							* [collections](http://www.collectionsjs.com/) : [Heap](https://visualgo.net/en/heap) 구현을 사용하기 위해 사용
+							* 그외 개발 환경을 위한 라이브러리 사용
+						</script>
+					</section>
+				</section>
+
+				<section data-markdown>
+					<script type="text/template">
+						## Structure
+
+						![SVG vs Canvas](./assets/structure.png)
+					</script>
+				</section>
+
+				<section>
+					<section data-markdown>
+						<script type="text/template">
+							## Flow Chart
+
+							![Flow Chart]](./assets/flow-chart.png)
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							### Build chart
+
+							```javascript
+							var minX = Date.now();
+							var maxX = minX + 6000;
+							var minY = 0;
+							var maxY = 5000;
+
+							scatter.view.buildChart('scatter', {
+								axis: {
+									x: {
+										key: "endTime",
+										range: [minX, maxX],
+										format: function (value) {
+											return scatter.moment(value).format("HH:mm");
+										}
+									},
+									y: {
+										key: "responseTime",
+										range: [minY, maxY]
+									},
+								},
+								color: (content) => {
+									if (content.responseTime < 1500) {
+										return '#00ff00';
+									}
+
+									if (content.responseTime < 3000) {
+										return '#0000ff';
+									}
+
+									return '#ff0000';
+								}
+							});
+							scatter.view.renderRealTimeChart('scatter');
+							```
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							### Render real time chart
+
+							```javascript
+							function renderRealTimeChart() {
+								const transactionCallback = (resources, startTime, endTime)=> {
+									let result = resources.result;
+									if (!result || !Array.isArray(result.TransactionData)) {
+										return;
+									}
+
+									minX = Math.min(minX, startTime);
+									maxX = Math.max(maxX, endTime);
+
+									// Input content
+									_.each(result.TransactionData, content => {
+										contents.push(content);
+									});
+									_checkContents();
+
+									throttledRenderChart();
+								};
+
+								forwardIntervalId = data.getForwardTransactionDataRealTime(transactionCallback, DOMAIN_ID);
+								data.getBackwardTransactionDataRealTime(transactionCallback, DOMAIN_ID);
+							}
+							```
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							### Check over
+
+							```javascript
+							function _checkContents() {
+								if (!_isContentsOver()) {
+									return;
+								}
+
+								// remove foward interval
+								if (!typeCheck('null', forwardIntervalId)) {
+									clearInterval(forwardIntervalId);
+									forwardIntervalId = null;
+								}
+
+								// remove over content
+								const overSize = contents.length - CONTENT_MAX_SIZE;
+								let isNeedToChangeMaxY = false;
+								for (let idx = 0; idx < overSize; idx++) {
+									let content = contents.pop();
+									if (maxY <= content[scatterChart.axis.y.key]) {
+										isNeedToChangeMaxY = true;
+									}
+								}
+
+								// update max
+								minX = parseInt(contents.max().endTime, 10);
+									if (isNeedToChangeMaxY) {
+										maxY = initializedMaxY;
+										contents.forEach(content=> {
+											maxY = Math.max(maxY, content[scatterChart.axis.y.key]);
+										});
+									}
+								}
+							}
+							```
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							### Init event
+
+							```javascript
+							function _initEvent() {
+								window.addEventListener('resize', ()=> {
+									scatterChart.resize();
+									throttledRsizeRenderChart();
+								});
+
+								document.addEventListener('keydown', (event) => {
+									const keyName = event.key;
+									const term = event.shiftKey ? 1 : Math.floor(maxY * 0.1);
+
+									if (keyName === "ArrowUp") {
+										maxY += term;
+									} else if (keyName === "ArrowDown") {
+										maxY -= term;
+									} else {
+										return;
+									}
+
+									throttledRsizeRenderChart();
+								});
+							}
+							```
+						</script>
+					</section>
+				</section>
+
+				<section>
+					<section data-markdown>
+						<script type="text/template">
+							## 구현
+
+							* [20만개의 점]()을 표현하며 [20만개가 유지]()가 되는 차트
+								* 호출한 트랜잭션 값의 순서를 보장할 수 없음
+								* 점이 20만개가 넘는다면 시간이 오래된 순으로 제거가 필요 
+							* [Heap](https://visualgo.net/en/heap)을 사용
+								* 새로운 값 추가에 유리 (log(n))
+								* 20만개가 넘은 점의 제거에 유리 (log(n))
+
+							![heap](./assets/heap.png)
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							## 구현
+
+							```javascript
+							// remove over content
+							const overSize = contents.length - CONTENT_MAX_SIZE;
+							let isNeedToChangeMaxY = false;
+							for (let idx = 0; idx < overSize; idx++) {
+								let content = contents.pop();
+								if (maxY <= content[scatterChart.axis.y.key]) {
+									isNeedToChangeMaxY = true;
+								}
+							}
+
+							// update max
+							minX = parseInt(contents.max().endTime, 10);
+								if (isNeedToChangeMaxY) {
+									maxY = initializedMaxY;
+									contents.forEach(content=> {
+										maxY = Math.max(maxY, content[scatterChart.axis.y.key]);
+									});
+								}
+							}
+							```
+						</script>
+					</section>
+				</section>
+
+				<section>
+					<section data-markdown>
+						<script type="text/template">
+							## 구현
+
+							* 차트 렌더링
+								* 개별 트랜잭션을 그릴 때마다 렌더링 시 많은 속도 저하
+								* 차트를 한번 렌더링할 때, 모든 트랜잭션을 [OffScreen Canvas]()에서 그리고 차트에 [OffScreen Canvas]()를 그림
+							* x축(최근 XX분, [가변적]()), 기본 y축 (0~5000) 
+								* x축이 가변적이기 때문에 계속 화면은 변화가 생김
+								* [OffScreen Canvas]()를 보관하여 사용하는 것은 의미가 없다고 판단
+						</script>
+					</section>
+
+					<section data-markdown>
+						<script type="text/template">
+							## 구현
+
+							```javascript
+							_drawScatterOnOffScreen() {
+								const width = this._offScreenCanvas.width;
+								const height = this._offScreenCanvas.height;
+								const drawCallback = content => {
+									const x = this._axis.x.getInterpolation(content[this._axis.x.key]) * width;
+									const y = height - this._axis.y.getInterpolation(Math.min(content[this._axis.y.key], this._axis.y.max)) * height;
+
+									this._offScreenContext.strokeStyle = this._getColor(content);
+									this._offScreenContext.strokeWidth = 2;
+									this._offScreenContext.beginPath();
+									this._offScreenContext.moveTo(x - 2, y - 2);
+									this._offScreenContext.lineTo(x + 2, y + 2);
+									this._offScreenContext.moveTo(x + 2, y - 2);
+									this._offScreenContext.lineTo(x - 2, y + 2);
+									this._offScreenContext.stroke();
+								};
+
+								this._offScreenContext.clearRect(0, 0, width, height);
+								this.data.forEach(drawCallback);
+							}
+							```
+						</script>
+					</section>
+				</section>
+
+				<section data-markdown>
+					## 아쉬운 점
+
+					* 트랙커를 통한 선택을 한다면 Heap이 유용한가?
+					* 차트를 렌더링할 때 트랜잭션을 나눠서 렌더링하였다면 좀 더 낫지 않았을까?
+					* Canvas를 렌더하는 부분에 대한 테스트 코드의 부재
+					* 메서드 분리 등....
+				</section>
+
+				<section>
+					<section data-markdown>
+						##  DEMO
+
+						* ~~https://egaoneko.github.io/scatter-chart/dist/index.html~~
+						* https://egaoneko.github.io/scatter-chart/dist/index.html?dummy=true
+						* Local Demo
+					</section>
+				</section>
+
+				<section data-markdown>
+					# Thank you.
+				</section>
+			</div>
+
+		</div>
+
+		<script src="../lib/js/head.min.js"></script>
+		<script src="../js/reveal.js"></script>
+
+		<script>
+
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: '../lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: '../plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: '../plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: '../plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: '../plugin/zoom-js/zoom.js', async: true },
+					{ src: '../plugin/notes/notes.js', async: true }
+				]
+			});
+		</script>
+
+	</body>
+</html>
